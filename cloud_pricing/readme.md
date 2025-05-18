@@ -1,9 +1,13 @@
-# Langsung aja ya ke skenario
-contoh skenario
-aplikasi butuh 1 pod = 1vCPU + 2GB Ram (bisa t2.small)
+# Catatan
+Gw rapihin poin yang bisa dipetik dan "dipelajari" karena inti dari cloud_pricing adalah ngitung atau reka estimasi biaya cloud yang akan kita bayar kira-kira berapa
 
-replika 4
+# Skenario
+Contohnya nih
+aplikasi butuh 1 pod = 1vCPU + 2GB Ram (bisa t2.small)
+dan butuh replika 4
 berarti total resource 4 vCPU + 8GB Ram (bisa 2x t2.medium atau t2.large)
+
+> enggak tau dah kenapa butuh 1vCPU + 2GB Ram. Yang jelas pasti ada requirement minimal banget mereka butuh "segitu"
 
 pertanyaannya, 
 1. kenapa replica sedangkan bisa pakai 1 pod = 4 vCPU + 8GB Ram
@@ -20,21 +24,24 @@ Jawabannya:
 
 Menurut gw pribadi, dari 4 sampai 5 kalau sudah beda region cloud harganya juga variatif. Kalau 3 juga oke sih, tapi gw pikir-pikir bakalan ada cost untuk k8s sendiri. Lanjut ya.
 
+> Ada alasan yang lebih-lebih lagi loh! Nanti gw angkat dibawah ya
+
 # Pricing
-Eh ngomongin pricing yuk. kenapa enggak 1 pod aja?
+> tl;dr selain pertimbangan kenapa butuh lebih dari satu instance. Tolong hitung kira-kira berapa juga "biaya" yang enggak terduga selain hitung-hitungan tarif, variabel sebannya lumayan.
+
+Ngomongin pricing. kenapa enggak 1 pod aja? Karena
 1. lebih murah,
 2. tidak tahan gangguan
 
-Nah ini, poin dua kalau ada gangguan ya selesai. Makanya, umumnya satu pod aja cukup kalau
+Nah ini, dari poin kedua yang mengganjal. Makanya, umumnya satu pod aja cukup kalau
 1. dev/test environment
 2. aplikasi internal
 3. tidak butuh HA (high availability)
 4. sudah punya layer HA yang lain (misal di reverse proxy/LB)
 
 Oke kalau pod replika?
-1. agak maehong (mahal), tapii: fault tolerance, load balancing, dan skalabilitas
+1. ~~agak maehong (mahal), tapii: fault tolerance, load balancing, dan skalabilitas~~ dengan jenis instance yang sama jatuhnya lebih mahal sih iya, secara reliabilitas bisa dipertimbangkan, kalau secara billing ini bisa bikin nangis kalau enggak dijaga
 
-## Jadi orang yang perhitungan
 Itung-itungan yuk. Lanjut dari atas tadi, dan gw pakai AWS
 
 | Instance  | vCPU | RAM  | Harga (\~USD/hour) |
@@ -46,8 +53,7 @@ Itung-itungan yuk. Lanjut dari atas tadi, dan gw pakai AWS
 
 Untuk 4 pod yang masing-masing butuh 1 vCPU + 2GB RAM, kita bisa kira-kira pakai 2 x t2.medium
 
-# Tambahannya?
-Ada dong, yaitu:
+Tapi, hitungan diatas hanya sekadar instancenya aja, belum termasuk komponen yang lain, yaitu:
 1. EKS Control Plane
 + ~$0.10/hour = $2.40/day (ini flat fee per EKS cluster)
 
@@ -59,9 +65,7 @@ Ada dong, yaitu:
 + ~ $0.10/GB-month → 16GB = $0.05/day
 
 ## Kenapa butuh ketiga item tadi?
-Kenapa butuh ketiga itu?
-1. EKS: Kalau pakai Kubernetes, eks adalah soiusi managed-nya
-+ enggak perlu ngatur control plane/manual cluster k8s 
+1. EKS: Kalau pakai Kubernetes, eks adalah soiusi managed-nya. Enggak perlu ngatur control plane/manual cluster k8s 
 2. EBS: penyimpanan yang persistence di node. Kalau butuh volume mount untuk pod (misalnya PostgreSQL, redis dengan persistence), nah ini butuh EBS
 3. Load Balancer: ekspose aplikasi ke Internet, atau pakai Ingress Controller kayak NGINX/ALB yang otomatis bikin Load Balancer
 
@@ -72,7 +76,7 @@ Tapii...
 
 Btw, bukannya EC2 ada volume sendiri dan itu default? Iya sih, karena AWS otomatis attach EBS sebagai root disk (tempat OS dan data disimpan). Dengan itu, kita bisa pilih ukuran, dan tetap dihitung biaya storage per GB per bulan.
 
-> katanya T2, T3, T4g enggak punya instance store, jadi wajib pakai EBS
+> katanya T2, T3, T4g enggak punya instance store, jadi wajib pakai EBS. Dan kalau enggak tau EKS, saran gw tahan dan kecualikan terlebih dulu
 
 # Simulasi biaya per hari
 | Komponen            | Jumlah          | Biaya/Hari (USD)  |
@@ -102,14 +106,14 @@ Ada dong, kalau elu yang mikirin perusahaan atau dompet sendiri bisa pertimbangk
 | **Load Balancer** | Pakai NodePort + NAT Gateway / VPN       | Bisa hilangkan biaya ALB, tapi akses public lebih ribet & kurang fleksibel. |
 | **EBS Storage**   | Gunakan storage external seperti S3, EFS | Bisa hemat biaya EBS, tapi aplikasi harus support remote storage.           |
 
-# Kesimpulan
+# Kesimpulan Sementara
 Menurut gw sih itu estimasi yang minimal cukup realistis untuk setup Kubernetes di AWS dengan:
 + 2 node EC2 t2.medium (cukup kecil dan murah untuk node produksi yang bisa jalan 3 pod),
 + 1 cluster EKS managed (biaya control plane fix),
 + 1 Application Load Balancer (ALB) untuk expose service,
 + EBS storage 10GB per pod (cukup untuk app yang butuh persistensi).
 
-## Case lain nih
+# Case lain nih
 Misal, gw ga pengen dulu pakai Kubernetes karena belum mateng dalam mengambil opsi tersebut, bisa lebih murah dong pastinya. Dan ini komponen tanpa Kubernetes
 | Komponen          | Penjelasan                         | Biaya Perkiraan                                                                      |
 | ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------ |
